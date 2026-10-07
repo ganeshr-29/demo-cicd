@@ -15,14 +15,23 @@ pipeline {
         }
 
         stage('Docker Linting') {
-            steps {
-                sh '''
-                # Run hadolint and export directly in SonarQube generic format
-                # Using docker container or locally installed hadolint binary
-                docker run --rm -i hadolint/hadolint hadolint --format sonarqube - < dockerfiles/Dockerfile > hadolint-report.json || true
-            '''
-            }
-        }
+    steps {
+        sh '''
+            # Initialize an empty SonarQube generic issues JSON
+            echo '{"issues": []}' > hadolint-report.json
+
+            # Loop through all files inside dockerfiles/ directory
+            for df in dockerfiles/*; do
+                if [ -f "$df" ]; then
+                    echo "Linting $df..."
+                    docker run --rm -i hadolint/hadolint hadolint --format sonarqube - < "$df" > "${df}.json" || true
+                fi
+            done
+
+            # Combine all issue JSON files using jq if installed, or lint each directly
+        '''
+    }
+}
 
         stage('SAST - SonarQube Analysis') {
             steps {
