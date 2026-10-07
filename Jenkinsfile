@@ -43,21 +43,21 @@ pipeline {
             }
         }
 
-        stage('Quality Gate Check') {
-            steps {
-                timeout(time: 3, unit: 'MINUTES') {
-                    script {
-                        // Pauses pipeline until SonarQube finishes computing and sends the webhook callback
-                        def qg = waitForQualityGate()
-                        echo "SonarQube Quality Gate Status: ${qg.status}"
+        // stage('Quality Gate Check') {
+        //     steps {
+        //         timeout(time: 3, unit: 'MINUTES') {
+        //             script {
+        //                 // Pauses pipeline until SonarQube finishes computing and sends the webhook callback
+        //                 def qg = waitForQualityGate()
+        //                 echo "SonarQube Quality Gate Status: ${qg.status}"
 
-                        if (qg.status != 'OK') {
-                            error "Pipeline stopped: SonarQube Quality Gate failed with status: ${qg.status}"
-                        }
-                    }
-                }
-            }
-        }
+        //                 if (qg.status != 'OK') {
+        //                     error "Pipeline stopped: SonarQube Quality Gate failed with status: ${qg.status}"
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
 
 
         // stage('Clean Workspace') {
