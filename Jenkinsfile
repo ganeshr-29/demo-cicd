@@ -15,23 +15,20 @@ pipeline {
         }
 
         stage('Docker Linting') {
-    steps {
-        sh '''
-            # Initialize an empty SonarQube generic issues JSON
-            echo '{"issues": []}' > hadolint-report.json
+            steps {
+                echo 'Running Hadolint on all Dockerfiles...'
+                sh '''
+                    # Run hadolint over the entire dockerfiles directory and write valid sonarqube json
+                    docker run --rm \
+                      -v "${WORKSPACE}:/workspace" \
+                      -w /workspace \
+                      hadolint/hadolint hadolint --format sonarqube dockerfiles/* > hadolint-report.json || true
 
-            # Loop through all files inside dockerfiles/ directory
-            for df in dockerfiles/*; do
-                if [ -f "$df" ]; then
-                    echo "Linting $df..."
-                    docker run --rm -i hadolint/hadolint hadolint --format sonarqube - < "$df" > "${df}.json" || true
-                fi
-            done
-
-            # Combine all issue JSON files using jq if installed, or lint each directly
-        '''
-    }
-}
+                    # Display the report contents in Jenkins console logs
+                    cat hadolint-report.json
+                '''
+            }
+        }
 
         stage('SAST - SonarQube Analysis') {
             steps {
