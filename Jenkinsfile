@@ -14,6 +14,16 @@ pipeline {
             }
         }
 
+        stage('Docker Linting') {
+            steps {
+                sh '''
+                # Run hadolint and export directly in SonarQube generic format
+                # Using docker container or locally installed hadolint binary
+                docker run --rm -i hadolint/hadolint hadolint --format sonarqube - < dockerfiles/Dockerfile > hadolint-report.json || true
+            '''
+            }
+        }
+
         stage('SAST - SonarQube Analysis') {
             steps {
                 echo 'Starting SonarQube SAST scan...'
