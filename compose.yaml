@@ -1,0 +1,77 @@
+networks:
+  webservers:
+#      driver: bridge
+
+volumes:
+  mysql_data:
+
+services:
+  db:
+    image: mysql:8.4
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_APP_USER}
+      MYSQL_PASSWORD: ${DB_APP_PASSWORD}
+    # In production, do NOT expose port 3306 to the public internet.
+    # Only internal services on the same Docker network should reach it.
+    networks:
+      - webservers
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - mysql_data:/var/lib/mysql
+
+  backend:
+    image: rganesh7/backend:iitm-pvt-v1.0
+    container_name: backend
+    restart: always
+    environment:
+      DB_HOST: ${DB_HOST} #"database-1.c38uwawgato4.us-east-1.rds.amazonaws.com"
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_APP_USER} #"admin"
+      DB_PASSWORD: ${DB_APP_PASSWORD} #"jasqy1-sewjyh-nafsIw"
+      DB_NAME: ${DB_NAME} #"webapp_db"
+    depends_on:
+      - db
+    networks:
+      - webservers
+
+  frontend-success:
+      image: rganesh7/frontend-success:iitm-pvt-v1.0
+      container_name: success
+      restart: always
+      depends_on:
+        - backend
+      networks:
+        - webservers
+
+  frontend-signup:
+      image: rganesh7/frontend-signup:iitm-pvt-v1.0
+      container_name: signup
+      restart: always
+      depends_on:
+        - frontend-success
+      networks:
+        - webservers
+  
+  frontend-login:
+      image: rganesh7/frontend-login:iitm-pvt-v1.0
+      container_name: login
+      restart: always
+      depends_on:
+        - frontend-signup
+      networks:
+        - webservers
+
+  frontend-ingress:
+      image: rganesh7/frontend-ingress:iitm-pvt-v1.0
+      container_name: ingress
+      restart: always
+      ports:
+      - "9966:80"
+      depends_on:
+        - frontend-login
+      networks:
+        - webservers
