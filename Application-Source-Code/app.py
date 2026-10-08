@@ -1,3 +1,4 @@
+# sonarqube-reindex-v1
 from flask import Flask, request, jsonify, redirect
 import mysql.connector
 from flask_cors import CORS
@@ -59,5 +60,4 @@ def login():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
     
