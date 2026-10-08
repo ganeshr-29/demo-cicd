@@ -21,9 +21,8 @@ def get_db_connection():
         host=DB_HOST,
         port=DB_PORT,
         user=DB_USER,
-        password="APpuser@96!",
+        password=DB_PASSWORD,
         database=DB_NAME
-        #DB_PASSWORD
         # ssl_disabled=True
     )
 
