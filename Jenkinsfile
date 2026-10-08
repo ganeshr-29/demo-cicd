@@ -42,10 +42,9 @@ pipeline {
                 echo 'Starting SonarQube SAST scan...'
                 script {
                     def scannerHome = tool 'SonarScanner'
-                    sh 'rm -rf .scannerwork'
 
                     withSonarQubeEnv('demo_sonarqube') {
-                        sh "${scannerHome}/bin/sonar-scanner -Dsonar.analysis.cache.enabled=false"
+                        sh "${scannerHome}/bin/sonar-scanner"
                     }
                 }
             }
