@@ -7,10 +7,17 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
+
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Checkout SCM') {
             steps {
                 echo 'Checking out source code from GitHub...'
-                // Jenkins automatically clones your repo if this file is run via "Pipeline from SCM"
+                checkout scm
             }
         }
 
@@ -61,11 +68,7 @@ pipeline {
         // }
 
 
-        // stage('Clean Workspace') {
-        //     steps {
-        //         cleanWs()
-        //     }
-        // }
+        
 
 
 
