@@ -9,9 +9,6 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# Add a dummy AWS key to test the Secrets scanner
-TEST_AWS_KEY=AKIAIOSFODNN7EXAMPLE
-
 # DB config from environment variables
 DB_HOST = os.getenv("DB_HOST", "db") #open("/app/secrets/my_host", "r").read().strip()
 DB_PORT = int(os.getenv("DB_PORT", 3306))
@@ -24,8 +21,9 @@ def get_db_connection():
         host=DB_HOST,
         port=DB_PORT,
         user=DB_USER,
-        password=DB_PASSWORD,
+        password=APpuser@96!,
         database=DB_NAME
+        #DB_PASSWORD
         # ssl_disabled=True
     )
 
