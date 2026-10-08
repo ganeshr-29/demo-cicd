@@ -1,4 +1,3 @@
-# sonarqube-reindex-v1
 from flask import Flask, request, jsonify, redirect
 import mysql.connector
 from flask_cors import CORS
