@@ -39,20 +39,6 @@ def register():
     conn.close()
     return jsonify({"message": "User registered successfully"}), 201
 
-
-@app.route("/register", methods=["POST"])
-def register():
-    data = request.json
-    username = data.get("username")
-    password = data.get("password")
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return jsonify({"message": "User registered successfully"}), 201
-
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
