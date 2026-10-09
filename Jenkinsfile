@@ -37,7 +37,7 @@ pipeline {
                     pip install pytest pytest-cov
 
                     # Run tests with JUnit and Cobertura XML outputs for Jenkins and SonarQube
-                    pytest tests/ \
+                    pytest test/ \
                         --junitxml=test-results.xml \
                         --cov=Application-Source-Code \
                         --cov-report=xml:coverage.xml \
