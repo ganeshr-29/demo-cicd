@@ -26,6 +26,16 @@ def get_db_connection():
         # ssl_disabled=True
     )
 
+def get_db_connection():
+    return mysql.connector.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME
+        # ssl_disabled=True
+    )
+
 @app.route("/register", methods=["POST"])
 def register():
     data = request.json
@@ -56,9 +66,6 @@ def login():
         return jsonify({"message": "Login successful"})
     else:
         return jsonify({"message": "Invalid credentials"}), 401
-
-if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000)
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000)
