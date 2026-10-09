@@ -26,6 +26,8 @@ pipeline {
                 echo 'Setting up Python environment and running unit tests...'
                 sh '''
                     # Create and activate virtual environment
+                    sudo apt update
+                    sudo apt install -y python3.14-venv python3-pip
                     python3 -m venv venv
                     . venv/bin/activate
 
@@ -47,7 +49,6 @@ pipeline {
                     // Publishes test result graphs on the Jenkins build page
                     junit allowEmptyResults: true, testResults: 'test-results.xml'
                     // Clean up virtual environment directory to save agent disk space
-                    sh "rm -rf ${PYTHON_VENV}"
                 }
             }
         }
@@ -61,9 +62,6 @@ pipeline {
                       -v "${WORKSPACE}:/workspace" \
                       -w /workspace \
                       hadolint/hadolint hadolint --format sonarqube dockerfiles/* > hadolint-report.json || true
-
-                    # Display the report contents in Jenkins console logs
-                    cat hadolint-report.json
                 '''
             }
         }
