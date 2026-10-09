@@ -21,6 +21,37 @@ pipeline {
             }
         }
 
+        stage('Unit Testing & Coverage') {
+            steps {
+                echo 'Setting up Python environment and running unit tests...'
+                sh '''
+                    # Create and activate virtual environment
+                    python3 -m venv ${PYTHON_VENV}
+                    . ${PYTHON_VENV}/bin/activate
+
+                    # Install project dependencies and test tools
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                    pip install pytest pytest-cov
+
+                    # Run tests with JUnit and Cobertura XML outputs for Jenkins and SonarQube
+                    pytest tests/ \
+                        --junitxml=test-results.xml \
+                        --cov=Application-Source-Code \
+                        --cov-report=xml:coverage.xml \
+                        --cov-report=term-missing
+                '''
+            }
+            post {
+                always {
+                    // Publishes test result graphs on the Jenkins build page
+                    junit allowEmptyResults: true, testResults: 'test-results.xml'
+                    // Clean up virtual environment directory to save agent disk space
+                    sh "rm -rf ${PYTHON_VENV}"
+                }
+            }
+        }
+
         stage('Docker Linting') {
             steps {
                 echo 'Running Hadolint on all Dockerfiles...'
