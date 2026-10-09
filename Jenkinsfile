@@ -26,8 +26,8 @@ pipeline {
                 echo 'Setting up Python environment and running unit tests...'
                 sh '''
                     # Create and activate virtual environment
-                    python3 -m venv ${PYTHON_VENV}
-                    . ${PYTHON_VENV}/bin/activate
+                    python3 -m venv venv
+                    . venv/bin/activate
 
                     # Install project dependencies and test tools
                     pip install --upgrade pip
