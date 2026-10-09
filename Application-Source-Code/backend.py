@@ -26,15 +26,19 @@ def get_db_connection():
         # ssl_disabled=True
     )
 
-def get_db_connection():
-    return mysql.connector.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME
-        # ssl_disabled=True
-    )
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return jsonify({"message": "User registered successfully"}), 201
+
 
 @app.route("/register", methods=["POST"])
 def register():
