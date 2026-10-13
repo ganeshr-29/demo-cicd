@@ -94,24 +94,6 @@ pipeline {
             }
         }
 
-        // stage('Security Scan') {
-        //     agent {
-        //         docker {
-        //             image "aquasec/trivy"
-        //             args '-v $WORKSPACE:/apps --workdir /apps'
-        //         }
-        //     }
-        //     steps {
-        //         script {
-        //             echo "1. Generating combined HTML report for ALL severities (LOW to CRITICAL)..."
-        //             sh "trivy fs --scanners vuln --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@contrib/html.tpl' --output trivy-report.html requirements.txt"
-
-        //             echo "2. Enforcing pipeline gates for HIGH and CRITICAL vulnerabilities..."
-        //             sh "trivy fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --quiet requirements.txt"
-        //         }
-        //     }
-        // }
-
         stage('Security Scan') {
             steps {
                 script {
@@ -132,6 +114,21 @@ pipeline {
                         "
                     """
                 }
+            }
+        }
+
+        stage('Build Application Image') {
+            steps {
+                echo "Building and tagging backend image with Build Number..."
+                sh "docker build -t rganesh7/backend-1026:${BUILD_NUMBER} -f dockerfiles/backend.Dockerfile ."
+                echo "Building and tagging success image with Build Number..."
+                sh "docker build -t rganesh7/success-1026:${BUILD_NUMBER} -f dockerfiles/success.Dockerfile ."
+                echo "Building and tagging signup image with Build Number..."
+                sh "docker build -t rganesh7/signup-1026:${BUILD_NUMBER} -f dockerfiles/signup.Dockerfile ."
+                echo "Building and tagging login image with Build Number..."
+                sh "docker build -t rganesh7/login-1026:${BUILD_NUMBER} -f dockerfiles/login.Dockerfile ."
+                echo "Building and tagging ingress image with Build Number..."
+                sh "docker build -t rganesh7/ingress-1026:${BUILD_NUMBER} -f dockerfiles/ingress.Dockerfile ."
             }
         }
 
