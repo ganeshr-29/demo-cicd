@@ -94,7 +94,25 @@ pipeline {
             }
         }
 
-        
+        stage('Security Scan') {
+            agent {
+                docker {
+                    image "aquasec/trivy"
+                    args '-v $WORKSPACE:/apps --workdir /apps'
+                }
+            }
+            steps {
+                script {
+                    echo "1. Generating combined HTML report for ALL severities (LOW to CRITICAL)..."
+                    sh "trivy fs --scanners vuln --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@contrib/html.tpl' --output trivy-report.html ${env.REQ_FILE}"
+
+                    echo "2. Enforcing pipeline gates for HIGH and CRITICAL vulnerabilities..."
+                    sh "trivy fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --quiet ."
+                }
+            }
+        }
+
+
 
     }
 }
