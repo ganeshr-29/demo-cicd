@@ -126,7 +126,7 @@ pipeline {
                         --entrypoint sh \
                         aquasec/trivy -c "
                             echo '1. Generating combined HTML report for ALL severities...' && \
-                            trivy fs --scanners vuln --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@contrib/html.tpl' --output trivy-report.html requirements.txt && \
+                            trivy fs --scanners vuln --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output trivy-report.html requirements.txt && \
                             echo '2. Enforcing pipeline gates for HIGH and CRITICAL vulnerabilities...' && \
                             trivy fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --quiet requirements.txt
                         "
