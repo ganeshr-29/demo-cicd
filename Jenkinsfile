@@ -48,7 +48,6 @@ pipeline {
                 always {
                     // Publishes test result graphs on the Jenkins build page
                     junit allowEmptyResults: true, testResults: 'test-results.xml'
-                    // Clean up virtual environment directory to save agent disk space
                 }
             }
         }
@@ -96,11 +95,6 @@ pipeline {
         }
 
         
-
-
-        
-
-
 
     }
 }
