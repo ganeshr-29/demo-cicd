@@ -94,23 +94,47 @@ pipeline {
             }
         }
 
+        // stage('Security Scan') {
+        //     agent {
+        //         docker {
+        //             image "aquasec/trivy"
+        //             args '-v $WORKSPACE:/apps --workdir /apps'
+        //         }
+        //     }
+        //     steps {
+        //         script {
+        //             echo "1. Generating combined HTML report for ALL severities (LOW to CRITICAL)..."
+        //             sh "trivy fs --scanners vuln --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@contrib/html.tpl' --output trivy-report.html requirements.txt"
+
+        //             echo "2. Enforcing pipeline gates for HIGH and CRITICAL vulnerabilities..."
+        //             sh "trivy fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --quiet requirements.txt"
+        //         }
+        //     }
+        // }
+
         stage('Security Scan') {
-            agent {
-                docker {
-                    image "aquasec/trivy"
-                    args '-v $WORKSPACE:/apps --workdir /apps'
-                }
-            }
             steps {
                 script {
-                    echo "1. Generating combined HTML report for ALL severities (LOW to CRITICAL)..."
-                    sh "trivy fs --scanners vuln --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@contrib/html.tpl' --output trivy-report.html requirements.txt"
-
-                    echo "2. Enforcing pipeline gates for HIGH and CRITICAL vulnerabilities..."
-                    sh "trivy fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --quiet requirements.txt"
+                    echo "Running Trivy Scan inside a single container wrapper..."
+                    
+                    // We combine both steps using '&&' inside a shell wrapper. 
+                    // If Step 2 fails with exit code 1, the docker run command will pass that failure directly to Jenkins.
+                    sh """
+                        docker run --rm \
+                        -v \$(pwd):/apps \
+                        -w /apps \
+                        --entrypoint sh \
+                        aquasec/trivy -c "
+                            echo '1. Generating combined HTML report for ALL severities...' && \
+                            trivy fs --scanners vuln --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@contrib/html.tpl' --output trivy-report.html requirements.txt && \
+                            echo '2. Enforcing pipeline gates for HIGH and CRITICAL vulnerabilities...' && \
+                            trivy fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --quiet requirements.txt
+                        "
+                    """
                 }
             }
         }
+
 
 
 
