@@ -97,7 +97,7 @@ pipeline {
         stage('Security Scan') {
             steps {
                 script {
-                    echo "Running Trivy Scan inside a single container wrapper..."
+                    echo "Running Trivy Dependency Scan..."
                     
                     // We combine both steps using '&&' inside a shell wrapper. 
                     // If Step 2 fails with exit code 1, the docker run command will pass that failure directly to Jenkins.
@@ -129,6 +129,25 @@ pipeline {
                 sh "docker build -t rganesh7/login-1026:${BUILD_NUMBER} -f dockerfiles/login.Dockerfile ."
                 echo "Building and tagging ingress image with Build Number..."
                 sh "docker build -t rganesh7/ingress-1026:${BUILD_NUMBER} -f dockerfiles/ingress.Dockerfile ."
+            }
+        }
+
+        stage('Trivy Image Scan') {
+            steps {
+                script {
+                    // echo "Scanning Backend Image..."
+                    // sh """
+                    //     docker run --rm \
+                    //     aquasec/trivy image --severity HIGH,CRITICAL --exit-code 1 --quiet rganesh7/backend-1026:109
+                    // """
+                    // echo "Scanning Backend Image..."
+                    sh """
+                            docker run --rm \
+                            -v /var/run/docker.sock:/var/run/docker.sock:ro \
+                            -v \$(pwd)/security-reports:/apps \
+                            aquasec/trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output /apps/myapp-${service}-report.html rganesh7/${service}-1026:109
+                        """
+                }
             }
         }
 
