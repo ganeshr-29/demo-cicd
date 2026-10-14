@@ -144,8 +144,8 @@ pipeline {
                     sh """
                             docker run --rm \
                             -v /var/run/docker.sock:/var/run/docker.sock:ro \
-                            -v \$(pwd)/security-reports:/apps \
-                            aquasec/trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output /apps/myapp-${service}-report.html rganesh7/${service}-1026:109
+                            -v \$(pwd):/apps \
+                            aquasec/trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output /apps/myapp-report.html rganesh7/backend-1026:109
                         """
                 }
             }
