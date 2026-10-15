@@ -176,7 +176,7 @@ pipeline {
             steps {
                 // Inject the private key and passphrase from Jenkins credentials
                 withCredentials([
-                    string(credentialsId: 'cosign-private-key', variable: 'COSIGN_KEY'),
+                    file(credentialsId: 'cosign-private-key', variable: 'COSIGN_KEY'),
                     string(credentialsId: 'cosign-passphrase', variable: 'COSIGN_PASSWORD')
                 ]) {
                     script {
