@@ -164,7 +164,7 @@ pipeline {
                     def services = ['backend']
                     
                     // This block handles secure login and AUTOMATIC logout at the end
-                    docker.withRegistry('https://docker.io', 'docker-credentials') {
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-credentials') {
                         
                         for (int i = 0; i < services.size(); i++) {
                             String currentService = services[i]
