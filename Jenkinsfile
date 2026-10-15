@@ -117,7 +117,7 @@ pipeline {
             }
         }
 
-        stage('Build Application Image') {
+        stage('Build Docker Image') {
             steps {
                 echo "Building and tagging backend image with Build Number..."
                 sh "docker build -t rganesh7/backend-1026:${BUILD_NUMBER} -f dockerfiles/backend.Dockerfile ."
@@ -150,13 +150,39 @@ pipeline {
                             --entrypoint sh \
                             aquasec/trivy -c "
                                 trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output myapp-${currentService}-report.html rganesh7/${currentService}-1026:${BUILD_NUMBER} && \
-                                trivy image --severity HIGH,CRITICAL --exit-code 0 --quiet rganesh7/${currentService}-1026:${BUILD_NUMBER}
+                                trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 0 --quiet rganesh7/${currentService}-1026:${BUILD_NUMBER}
                             "
                         """
                     }
                 }
             }
         }
+
+        stage('Promote & Push to Registry') {
+    steps {
+        script {
+            def services = ['backend']
+            
+            // This block handles secure login and AUTOMATIC logout at the end
+            docker.withRegistry('https://docker.io', 'docker-credentials') {
+                
+                for (int i = 0; i < services.size(); i++) {
+                    String currentService = services[i]
+                    
+                    sh "docker tag rganesh7/${currentService}-1026:${BUILD_NUMBER} rganesh7/${currentService}-1026:latest"
+                    sh "docker push rganesh7/${currentService}-1026:${BUILD_NUMBER}"
+                    sh "docker push rganesh7/${currentService}-1026:latest"
+                }
+            } // <--- Docker Logout happens automatically right here!
+        }
+    }
+}
+
+
+
+
+    }
+}
 
 
         // stage('Trivy Image Scanning..') {
@@ -180,5 +206,3 @@ pipeline {
         //         }
         //     }
         // }
-    }
-}
