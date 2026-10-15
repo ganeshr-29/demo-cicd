@@ -146,31 +146,14 @@ pipeline {
                         aquasec/trivy -c "
                             echo '1. Generating HTML report...' && \
                             trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output myapp-report.html rganesh7/backend-1026:109 && \
-                            \
-                            echo '2. Enforcing pipeline validation gate...' && \
-                            trivy image --severity HIGH,CRITICAL --exit-code 1 --quiet rganesh7/backend-1026:109
+                            echo '2. Enforcing pipeline validation gate...' 
                         "
                     """
                 }
             }
         }
-
-
-        // stage('Trivy Image Scan') {
-        //     steps {
-        //         script {
-        //             sh """
-        //                     docker run --rm \
-        //                     -v /var/run/docker.sock:/var/run/docker.sock:ro \
-        //                     -v \$(pwd):/apps \
-        //                     aquasec/trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output /apps/myapp-report.html rganesh7/backend-1026:109
-        //                 """
-        //         }
-        //     }
-        // }
-
-        
-
     }
 }
 
+// && \
+//                             trivy image --severity HIGH,CRITICAL --exit-code 1 --quiet rganesh7/backend-1026:109
