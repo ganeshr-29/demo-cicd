@@ -183,17 +183,10 @@ pipeline {
                         docker.withRegistry('https://index.docker.io/v1/', 'docker-credentials') {
                             sh "cosign sign --key \$COSIGN_KEY rganesh7/backend-1026:latest"
                         }
-
-                        // Sign the image using Cosign
-                        // 'env://COSIGN_KEY' reads the private key from the environment variable directly
                     }
                 }
             }
         }
-
-
-
-
     }
 }
 
