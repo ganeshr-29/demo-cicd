@@ -139,6 +139,7 @@ pipeline {
                     
                     sh """
                         docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock:ro \
                         -v \$(pwd):/apps \
                         -w /apps \
                         --entrypoint sh \
