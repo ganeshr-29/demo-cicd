@@ -159,24 +159,24 @@ pipeline {
         }
 
         stage('Promote & Push to Registry') {
-    steps {
-        script {
-            def services = ['backend']
-            
-            // This block handles secure login and AUTOMATIC logout at the end
-            docker.withRegistry('https://docker.io', 'docker-credentials') {
-                
-                for (int i = 0; i < services.size(); i++) {
-                    String currentService = services[i]
+            steps {
+                script {
+                    def services = ['backend']
                     
-                    sh "docker tag rganesh7/${currentService}-1026:${BUILD_NUMBER} rganesh7/${currentService}-1026:latest"
-                    sh "docker push rganesh7/${currentService}-1026:${BUILD_NUMBER}"
-                    sh "docker push rganesh7/${currentService}-1026:latest"
+                    // This block handles secure login and AUTOMATIC logout at the end
+                    docker.withRegistry('https://index.docker.io', 'docker-credentials') {
+                        
+                        for (int i = 0; i < services.size(); i++) {
+                            String currentService = services[i]
+                            
+                            sh "docker tag rganesh7/${currentService}-1026:${BUILD_NUMBER} rganesh7/${currentService}-1026:latest"
+                            sh "docker push rganesh7/${currentService}-1026:${BUILD_NUMBER}"
+                            sh "docker push rganesh7/${currentService}-1026:latest"
+                        }
+                    } // <--- Docker Logout happens automatically right here!
                 }
-            } // <--- Docker Logout happens automatically right here!
+            }
         }
-    }
-}
 
 
 
