@@ -82,7 +82,6 @@ pipeline {
             steps {
                 timeout(time: 3, unit: 'MINUTES') {
                     script {
-                        // Pauses pipeline until SonarQube finishes computing and sends the webhook callback
                         def qg = waitForQualityGate()
                         echo "SonarQube Quality Gate Status: ${qg.status}"
 
@@ -98,9 +97,6 @@ pipeline {
             steps {
                 script {
                     echo "Running Trivy Dependency Scan..."
-                    
-                    // We combine both steps using '&&' inside a shell wrapper. 
-                    // If Step 2 fails with exit code 1, the docker run command will pass that failure directly to Jenkins.
                     sh """
                         docker run --rm \
                         -v \$(pwd):/apps \
@@ -162,8 +158,6 @@ pipeline {
             steps {
                 script {
                     def services = ['backend']
-                    
-                    // This block handles secure login and AUTOMATIC logout at the end
                     docker.withRegistry('https://index.docker.io/v1/', 'docker-credentials') {
                         
                         for (int i = 0; i < services.size(); i++) {
@@ -173,7 +167,23 @@ pipeline {
                             sh "docker push rganesh7/${currentService}-1026:${BUILD_NUMBER}"
                             sh "docker push rganesh7/${currentService}-1026:latest"
                         }
-                    } // <--- Docker Logout happens automatically right here!
+                    }
+                }
+            }
+        }
+
+        stage('Sign Image') {
+            steps {
+                // Inject the private key and passphrase from Jenkins credentials
+                withCredentials([
+                    string(credentialsId: 'cosign-private-key', variable: 'COSIGN_KEY'),
+                    string(credentialsId: 'cosign-passphrase', variable: 'COSIGN_PASSWORD')
+                ]) {
+                    script {
+                        // Sign the image using Cosign
+                        // 'env://COSIGN_KEY' reads the private key from the environment variable directly
+                        sh "cosign sign --key env://COSIGN_KEY rganesh7/backend-1026:latest"
+                    }
                 }
             }
         }
