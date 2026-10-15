@@ -180,9 +180,12 @@ pipeline {
                     string(credentialsId: 'cosign-passphrase', variable: 'COSIGN_PASSWORD')
                 ]) {
                     script {
+                        docker.withRegistry('https://index.docker.io/v1/', 'docker-credentials') {
+                            sh "cosign sign --key env://COSIGN_KEY rganesh7/backend-1026:latest"
+                        }
+
                         // Sign the image using Cosign
                         // 'env://COSIGN_KEY' reads the private key from the environment variable directly
-                        sh "cosign sign --key env://COSIGN_KEY rganesh7/backend-1026:latest"
                     }
                 }
             }
