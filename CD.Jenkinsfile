@@ -71,7 +71,7 @@ EOF
                 }
 
                 echo "Waiting 2 minutes for containers and database initialization to complete..."
-                sleep time: 2, unit: 'MINUTES'
+                sleep time: 1, unit: 'MINUTES'
 
                 echo "Inspecting running status for all containers on ${DEPLOY_HOST}..."
                 sshagent(['Deployment_Server']) {
