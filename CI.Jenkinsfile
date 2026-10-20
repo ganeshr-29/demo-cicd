@@ -14,7 +14,9 @@ pipeline {
             }
             post {
                 failure {
+                    echo "==================================================="
                     echo "[PIPELINE FAILURE] Failed at stage: Clean Workspace"
+                    echo "==================================================="
                 }
             }
         }
@@ -26,7 +28,9 @@ pipeline {
             }
             post {
                 failure {
+                    echo "============================================================================"
                     echo "[PIPELINE FAILURE] Failed at stage: Checkout SCM (Unable to pull repository)"
+                    echo "============================================================================"
                 }
             }
         }
@@ -60,7 +64,9 @@ pipeline {
                 //     junit allowEmptyResults: true, testResults: 'test-results.xml'
                 // }
                 failure {
+                    echo "==========================================================="
                     echo "[PIPELINE FAILURE] Failed at stage: Unit Testing & Coverage"
+                    echo "==========================================================="
                 }
             }
         }
@@ -78,7 +84,9 @@ pipeline {
             }
             post {
                 failure {
+                    echo "=================================================="
                     echo "[PIPELINE FAILURE] Failed at stage: Docker Linting"
+                    echo "=================================================="
                 }
             }
         }
@@ -96,7 +104,9 @@ pipeline {
             }
             post {
                 failure {
+                    echo "========================================================================================"
                     echo "[PIPELINE FAILURE] Failed at stage: SAST - SonarQube Analysis (Scanner execution failed)"
+                    echo "========================================================================================"
                 }
             }
         }
@@ -116,7 +126,9 @@ pipeline {
             }
             post {
                 failure {
+                    echo "======================================================================================================="
                     echo "[PIPELINE FAILURE] Failed at stage: Quality Gate Check (Project failed to meet Quality Gate conditions)"
+                    echo "======================================================================================================="
                 }
             }
         }
@@ -144,7 +156,9 @@ pipeline {
                     archiveArtifacts artifacts: 'dependency_report.html', allowEmptyArchive: true
                 }
                 failure {
+                    echo "======================================================================================================="
                     echo "[PIPELINE FAILURE] Failed at stage: Dependency Scan (High or Critical CVE detected in requirements.txt)"
+                    echo "======================================================================================================="
                 }
             }
         }
@@ -161,7 +175,9 @@ pipeline {
             }
             post {
                 failure {
+                    echo "=============================================================================================================="
                     echo "[PIPELINE FAILURE] Failed at stage: Build Docker Image (Docker build step encountered a syntax or layer error)"
+                    echo "=============================================================================================================="
                 }
             }
         }
@@ -211,7 +227,9 @@ pipeline {
                     archiveArtifacts artifacts: 'Trivy_Img_Scan-*-report.html', allowEmptyArchive: true
                 }
                 failure {
+                    echo "======================================================================================================================"
                     echo "[PIPELINE FAILURE] Failed at stage: Trivy Image Scanning (High/Critical unpatched vulnerability found in built images)"
+                    echo "======================================================================================================================"
                 }
             }
         }
@@ -234,7 +252,9 @@ pipeline {
             }
             post {
                 failure {
+                    echo "============================================================================================"
                     echo "[PIPELINE FAILURE] Failed at stage: Promote & Push to Registry (Docker login or push failed)"
+                    echo "============================================================================================"
                 }
             }
         }
@@ -255,7 +275,9 @@ pipeline {
             }
             post {
                 failure {
+                    echo "==================================================================================="
                     echo "[PIPELINE FAILURE] Failed at stage: Sign Image (Cosign signature generation failed)"
+                    echo "==================================================================================="
                 }
             }
         }
@@ -266,7 +288,9 @@ pipeline {
         }
         failure {
             echo "================================================================================"
+            echo "================================================================================"
             echo "BUILD FAILED: Review the stage marked above with [PIPELINE FAILURE] for details."
+            echo "================================================================================"
             echo "================================================================================"
         }
     }
