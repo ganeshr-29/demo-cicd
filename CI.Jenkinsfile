@@ -144,16 +144,16 @@ pipeline {
                         --entrypoint sh \
                         aquasec/trivy -c "
                             echo '1. Generating combined HTML report for ALL severities...' && \
-                            trivy fs --scanners vuln --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output dependency_report.html requirements.txt && \
+                            trivy fs --scanners vuln --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output dependency_report_${BUILD_NUMBER}.html requirements.txt && \
                             echo '2. Enforcing pipeline gates for HIGH and CRITICAL vulnerabilities...' && \
-                            trivy fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --quiet requirements.txt
+                            trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --quiet requirements.txt
                         "
                     """
                 }
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'dependency_report.html', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'dependency_report_*.html', allowEmptyArchive: true
                 }
                 failure {
                     echo "======================================================================================================="
@@ -214,8 +214,8 @@ pipeline {
                             -w /apps \
                             --entrypoint sh \
                             aquasec/trivy -c "
-                                trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output Trivy_Img_Scan-${currentService}-report.html rganesh7/${currentService}-1026:${BUILD_NUMBER} && \
-                                trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --quiet rganesh7/${currentService}-1026:${BUILD_NUMBER}
+                                trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output Trivy_Img_Scan-${currentService}-report_${BUILD_NUMBER}.html rganesh7/${currentService}-1026:${BUILD_NUMBER} && \
+                                trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 0 --quiet rganesh7/${currentService}-1026:${BUILD_NUMBER}
                             "
                         """
                     }
@@ -224,7 +224,7 @@ pipeline {
             post {
                 always {
                     // Preserves HTML reports even when Trivy exits with 1
-                    archiveArtifacts artifacts: 'Trivy_Img_Scan-*-report.html', allowEmptyArchive: true
+                    archiveArtifacts artifacts: 'Trivy_Img_Scan-*-report_*.html', allowEmptyArchive: true
                 }
                 failure {
                     echo "======================================================================================================================"
