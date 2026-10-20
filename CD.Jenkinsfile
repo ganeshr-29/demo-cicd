@@ -70,7 +70,7 @@ EOF
                     """
                 }
 
-                echo "Waiting 2 minutes for containers and database initialization to complete..."
+                echo "Waiting 1 minute for containers and database initialization to complete..."
                 sleep time: 1, unit: 'MINUTES'
 
                 echo "Inspecting running status for all containers on ${DEPLOY_HOST}..."
