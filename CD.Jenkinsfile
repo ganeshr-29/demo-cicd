@@ -102,7 +102,7 @@ EOF
                             fi
 
                             echo "SUCCESS: All \${TOTAL_SERVICES} containers are confirmed running!"
-                        EOF
+EOF
                     """
                 }
             }
