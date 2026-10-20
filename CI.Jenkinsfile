@@ -1,5 +1,7 @@
 pipeline {
+
     agent any 
+
     options {
         timeout(time: 30, unit: 'MINUTES')
         timestamps()
@@ -237,7 +239,7 @@ pipeline {
         stage('Promote & Push to Registry') {
             steps {
                 script {
-                    def services = ['backend']
+                    def services = ['backend', 'success', 'signup', 'login', 'ingress']
                     docker.withRegistry('https://index.docker.io/v1/', 'docker-credentials') {
                         
                         for (int i = 0; i < services.size(); i++) {
@@ -267,9 +269,18 @@ pipeline {
                     string(credentialsId: 'cosign-passphrase', variable: 'COSIGN_PASSWORD')
                 ]) {
                     script {
+                        def services = ['backend', 'success', 'signup', 'login', 'ingress']
+
                         docker.withRegistry('https://index.docker.io/v1/', 'docker-credentials') {
-                            sh "cosign sign --key \$COSIGN_KEY rganesh7/backend-1026:latest"
-                            sh "cosign sign --key \$COSIGN_KEY rganesh7/backend-1026:${BUILD_NUMBER}"
+                            for (int i = 0; i < services.size(); i++) {
+                                String currentService = services[i]
+                                echo "Signing ${currentService} images (latest and build ${BUILD_NUMBER})..."
+
+                                sh """
+                                    cosign sign --key "\$COSIGN_KEY" rganesh7/${currentService}-1026:latest
+                                    cosign sign --key "\$COSIGN_KEY" rganesh7/${currentService}-1026:${BUILD_NUMBER}
+                                """
+                            }
                         }
                     }
                 }
@@ -282,6 +293,30 @@ pipeline {
                 }
             }
         }
+
+        // stage('Sign Image') {
+        //     steps {
+        //         // Inject the private key and passphrase from Jenkins credentials
+        //         withCredentials([
+        //             file(credentialsId: 'cosign-private-key', variable: 'COSIGN_KEY'),
+        //             string(credentialsId: 'cosign-passphrase', variable: 'COSIGN_PASSWORD')
+        //         ]) {
+        //             script {
+        //                 docker.withRegistry('https://index.docker.io/v1/', 'docker-credentials') {
+        //                     sh "cosign sign --key \$COSIGN_KEY rganesh7/backend-1026:latest"
+        //                     sh "cosign sign --key \$COSIGN_KEY rganesh7/backend-1026:${BUILD_NUMBER}"
+        //                 }
+        //             }
+        //         }
+        //     }
+        //     post {
+        //         failure {
+        //             echo "==================================================================================="
+        //             echo "[PIPELINE FAILURE] Failed at stage: Sign Image (Cosign signature generation failed)"
+        //             echo "==================================================================================="
+        //         }
+        //     }
+        // }
     }
     post {
         success {

@@ -24,7 +24,7 @@ services:
       - mysql_data:/var/lib/mysql
 
   backend:
-    image: rganesh7/backend:iitm-pvt-v1.0
+    image: rganesh7/backend-1026:latest
     container_name: backend
     restart: always
     environment:
@@ -39,7 +39,7 @@ services:
       - webservers
 
   frontend-success:
-      image: rganesh7/frontend-success:iitm-pvt-v1.0
+      image: rganesh7/success-1026:latest
       container_name: success
       restart: always
       depends_on:
@@ -48,7 +48,7 @@ services:
         - webservers
 
   frontend-signup:
-      image: rganesh7/frontend-signup:iitm-pvt-v1.0
+      image: rganesh7/signup-1026:latest
       container_name: signup
       restart: always
       depends_on:
@@ -57,7 +57,7 @@ services:
         - webservers
   
   frontend-login:
-      image: rganesh7/frontend-login:iitm-pvt-v1.0
+      image: rganesh7/login-1026:latest
       container_name: login
       restart: always
       depends_on:
@@ -66,7 +66,7 @@ services:
         - webservers
 
   frontend-ingress:
-      image: rganesh7/frontend-ingress:iitm-pvt-v1.0
+      image: rganesh7/ingress-1026:latest
       container_name: ingress
       restart: always
       ports:
