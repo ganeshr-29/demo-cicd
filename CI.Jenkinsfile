@@ -12,12 +12,22 @@ pipeline {
             steps {
                 cleanWs()
             }
+            post {
+                failure {
+                    echo "[PIPELINE FAILURE] Failed at stage: Clean Workspace"
+                }
+            }
         }
 
         stage('Checkout SCM') {
             steps {
                 echo 'Checking out source code from GitHub...'
                 checkout scm
+            }
+            post {
+                failure {
+                    echo "[PIPELINE FAILURE] Failed at stage: Checkout SCM (Unable to pull repository)"
+                }
             }
         }
 
@@ -44,12 +54,15 @@ pipeline {
                         --cov-report=term-missing
                 '''
             }
-            // post {
-            //     always {
-            //         // Publishes test result graphs on the Jenkins build page
-            //         junit allowEmptyResults: true, testResults: 'test-results.xml'
-            //     }
-            // }
+            post {
+                // always {
+                //     // Publishes test result graphs on the Jenkins build page
+                //     junit allowEmptyResults: true, testResults: 'test-results.xml'
+                // }
+                failure {
+                    echo "[PIPELINE FAILURE] Failed at stage: Unit Testing & Coverage"
+                }
+            }
         }
 
         stage('Docker Linting') {
@@ -63,6 +76,11 @@ pipeline {
                       hadolint/hadolint hadolint --format sonarqube dockerfiles/* > hadolint-report.json || true
                 '''
             }
+            post {
+                failure {
+                    echo "[PIPELINE FAILURE] Failed at stage: Docker Linting"
+                }
+            }
         }
 
         stage('SAST - SonarQube Analysis') {
@@ -74,6 +92,11 @@ pipeline {
                     withSonarQubeEnv('demo_sonarqube') {
                         sh "${scannerHome}/bin/sonar-scanner"
                     }
+                }
+            }
+            post {
+                failure {
+                    echo "[PIPELINE FAILURE] Failed at stage: SAST - SonarQube Analysis (Scanner execution failed)"
                 }
             }
         }
@@ -89,6 +112,11 @@ pipeline {
                             error "Pipeline stopped: SonarQube Quality Gate failed with status: ${qg.status}"
                         }
                     }
+                }
+            }
+            post {
+                failure {
+                    echo "[PIPELINE FAILURE] Failed at stage: Quality Gate Check (Project failed to meet Quality Gate conditions)"
                 }
             }
         }
@@ -111,22 +139,47 @@ pipeline {
                     """
                 }
             }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'dependency_report.html', allowEmptyArchive: true
+                }
+                failure {
+                    echo "[PIPELINE FAILURE] Failed at stage: Dependency Scan (High or Critical CVE detected in requirements.txt)"
+                }
+            }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo "Building and tagging backend image with Build Number..."
-                sh "docker build -t rganesh7/backend-1026:${BUILD_NUMBER} -f dockerfiles/backend.Dockerfile ."
-                echo "Building and tagging success image with Build Number..."
-                sh "docker build -t rganesh7/success-1026:${BUILD_NUMBER} -f dockerfiles/success.Dockerfile ."
-                echo "Building and tagging signup image with Build Number..."
-                sh "docker build -t rganesh7/signup-1026:${BUILD_NUMBER} -f dockerfiles/signup.Dockerfile ."
-                echo "Building and tagging login image with Build Number..."
-                sh "docker build -t rganesh7/login-1026:${BUILD_NUMBER} -f dockerfiles/login.Dockerfile ."
-                echo "Building and tagging ingress image with Build Number..."
-                sh "docker build -t rganesh7/ingress-1026:${BUILD_NUMBER} -f dockerfiles/ingress.Dockerfile ."
+                script {
+                    def images = ['backend', 'success', 'signup', 'login', 'ingress']
+                    for (service in images) {
+                        echo "Building and tagging ${service} image with Build Number..."
+                        sh "docker build -t rganesh7/${service}-1026:${BUILD_NUMBER} -f dockerfiles/${service}.Dockerfile ."
+                    }
+                }
+            }
+            post {
+                failure {
+                    echo "[PIPELINE FAILURE] Failed at stage: Build Docker Image (Docker build step encountered a syntax or layer error)"
+                }
             }
         }
+
+        // stage('Build Docker Image') {
+        //     steps {
+        //         echo "Building and tagging backend image with Build Number..."
+        //         sh "docker build -t rganesh7/backend-1026:${BUILD_NUMBER} -f dockerfiles/backend.Dockerfile ."
+        //         echo "Building and tagging success image with Build Number..."
+        //         sh "docker build -t rganesh7/success-1026:${BUILD_NUMBER} -f dockerfiles/success.Dockerfile ."
+        //         echo "Building and tagging signup image with Build Number..."
+        //         sh "docker build -t rganesh7/signup-1026:${BUILD_NUMBER} -f dockerfiles/signup.Dockerfile ."
+        //         echo "Building and tagging login image with Build Number..."
+        //         sh "docker build -t rganesh7/login-1026:${BUILD_NUMBER} -f dockerfiles/login.Dockerfile ."
+        //         echo "Building and tagging ingress image with Build Number..."
+        //         sh "docker build -t rganesh7/ingress-1026:${BUILD_NUMBER} -f dockerfiles/ingress.Dockerfile ."
+        //     }
+        // }
 
         stage('Trivy Image Scanning..') {
             steps {
@@ -145,11 +198,20 @@ pipeline {
                             -w /apps \
                             --entrypoint sh \
                             aquasec/trivy -c "
-                                trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output myapp-${currentService}-report.html rganesh7/${currentService}-1026:${BUILD_NUMBER} && \
+                                trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output Trivy_Img_Scan-${currentService}-report.html rganesh7/${currentService}-1026:${BUILD_NUMBER} && \
                                 trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --quiet rganesh7/${currentService}-1026:${BUILD_NUMBER}
                             "
                         """
                     }
+                }
+            }
+            post {
+                always {
+                    // Preserves HTML reports even when Trivy exits with 1
+                    archiveArtifacts artifacts: 'Trivy_Img_Scan-*-report.html', allowEmptyArchive: true
+                }
+                failure {
+                    echo "[PIPELINE FAILURE] Failed at stage: Trivy Image Scanning (High/Critical unpatched vulnerability found in built images)"
                 }
             }
         }
@@ -170,6 +232,11 @@ pipeline {
                     }
                 }
             }
+            post {
+                failure {
+                    echo "[PIPELINE FAILURE] Failed at stage: Promote & Push to Registry (Docker login or push failed)"
+                }
+            }
         }
 
         stage('Sign Image') {
@@ -186,6 +253,21 @@ pipeline {
                     }
                 }
             }
+            post {
+                failure {
+                    echo "[PIPELINE FAILURE] Failed at stage: Sign Image (Cosign signature generation failed)"
+                }
+            }
+        }
+    }
+    post {
+        success {
+            echo "SUCCESS: Pipeline completed all security checks, tests, builds, pushes, and signatures."
+        }
+        failure {
+            echo "================================================================================"
+            echo "BUILD FAILED: Review the stage marked above with [PIPELINE FAILURE] for details."
+            echo "================================================================================"
         }
     }
 }
