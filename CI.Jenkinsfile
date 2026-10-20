@@ -44,12 +44,12 @@ pipeline {
                         --cov-report=term-missing
                 '''
             }
-            post {
-                always {
-                    // Publishes test result graphs on the Jenkins build page
-                    junit allowEmptyResults: true, testResults: 'test-results.xml'
-                }
-            }
+            // post {
+            //     always {
+            //         // Publishes test result graphs on the Jenkins build page
+            //         junit allowEmptyResults: true, testResults: 'test-results.xml'
+            //     }
+            // }
         }
 
         stage('Docker Linting') {
@@ -146,7 +146,7 @@ pipeline {
                             --entrypoint sh \
                             aquasec/trivy -c "
                                 trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output myapp-${currentService}-report.html rganesh7/${currentService}-1026:${BUILD_NUMBER} && \
-                                trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 0 --quiet rganesh7/${currentService}-1026:${BUILD_NUMBER}
+                                trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --quiet rganesh7/${currentService}-1026:${BUILD_NUMBER}
                             "
                         """
                     }
