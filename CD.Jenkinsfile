@@ -66,7 +66,7 @@ pipeline {
 
                             echo "Pruning older dangling images..."
                             docker image prune -f
-                        EOF
+EOF
                     """
                 }
 
