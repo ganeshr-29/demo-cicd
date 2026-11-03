@@ -1,0 +1,26 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Select Pipeline') {
+            steps {
+                script {
+                    if (env.CHANGE_ID) {
+                        // Pull request build
+                        if (env.CHANGE_TARGET == 'dev') {
+                            echo 'PR targeting dev: Running CI'
+                            load 'ci.jenkins'
+                        } else {
+                            echo 'PR target is not dev. Skipping.'
+                        }
+                    } else if (env.BRANCH_NAME == 'prod') {
+                        echo 'Push to prod: Running CD'
+                        load 'cd.jenkins'
+                    } else {
+                        echo "No pipeline configured for ${env.BRANCH_NAME}"
+                    }
+                }
+            }
+        }
+    }
+}
