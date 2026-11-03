@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
 
@@ -12,18 +13,26 @@ pipeline {
             steps {
                 script {
                     if (env.CHANGE_ID) {
-                        // Pull request build
+                        // Pull Request: Run CI only for PRs targeting dev
                         if (env.CHANGE_TARGET == 'dev') {
                             echo 'PR targeting dev: Running CI'
-                            load 'CI.Jenkinsfile'
+
+                            def ci = load 'CI.Jenkinsfile'
+                            ci.runCI()
+
                         } else {
-                            echo 'PR target is not dev. Skipping.'
+                            echo "PR target is ${env.CHANGE_TARGET}. Skipping CI."
                         }
+
                     } else if (env.BRANCH_NAME == 'prod') {
+                        // Push to prod: Run CD
                         echo 'Push to prod: Running CD'
-                        load 'CD.Jenkinsfile'
+
+                        def cd = load 'CD.Jenkinsfile'
+                        cd.runCD()
+
                     } else {
-                        echo "No pipeline configured for ${env.BRANCH_NAME}"
+                        echo "No pipeline configured for branch: ${env.BRANCH_NAME}"
                     }
                 }
             }
