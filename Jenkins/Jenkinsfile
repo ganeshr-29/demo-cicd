@@ -16,7 +16,7 @@ pipeline {
                         if (env.CHANGE_TARGET == 'dev') {
                             echo 'PR targeting dev: Running CI'
 
-                            def ci = load 'CI.Jenkinsfile'
+                            def ci = load 'Jenkins/CI.Jenkinsfile'
                             ci.runCI()
 
                         } else {
@@ -27,7 +27,7 @@ pipeline {
                         // Push to prod: Run CD
                         echo 'Push to prod: Running CD'
 
-                        def cd = load 'CD.Jenkinsfile'
+                        def cd = load 'Jenkins/CD.Jenkinsfile'
                         cd.runCD()
 
                     } else {
