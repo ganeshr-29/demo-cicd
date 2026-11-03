@@ -1,12 +1,4 @@
-pipeline {
-
-    agent any 
-
-    options {
-        timeout(time: 30, unit: 'MINUTES')
-        timestamps()
-        disableConcurrentBuilds()
-    }
+def runCI() {
 
     stages {
 
@@ -333,6 +325,7 @@ pipeline {
         }
     }
 }
+return this
 
 
         // stage('Trivy Image Scanning..') {
