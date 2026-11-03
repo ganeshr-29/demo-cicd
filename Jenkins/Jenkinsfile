@@ -1,0 +1,40 @@
+
+pipeline {
+    agent any
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Select Pipeline') {
+            steps {
+                script {
+                    if (env.CHANGE_ID) {
+                        // Pull Request: Run CI only for PRs targeting dev
+                        if (env.CHANGE_TARGET == 'dev') {
+                            echo 'PR targeting dev: Running CI'
+
+                            def ci = load 'Jenkins/CI.Jenkinsfile'
+                            ci.runCI()
+
+                        } else {
+                            echo "PR target is ${env.CHANGE_TARGET}. Skipping CI."
+                        }
+
+                    } else if (env.BRANCH_NAME == 'prod') {
+                        // Push to prod: Run CD
+                        echo 'Push to prod: Running CD'
+
+                        def cd = load 'Jenkins/CD.Jenkinsfile'
+                        cd.runCD()
+
+                    } else {
+                        echo "No pipeline configured for branch: ${env.BRANCH_NAME}"
+                    }
+                }
+            }
+        }
+    }
+}

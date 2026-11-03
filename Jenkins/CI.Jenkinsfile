@@ -1,358 +1,321 @@
-pipeline {
+def runCI() {
 
-    agent any 
-
-    options {
-        timeout(time: 30, unit: 'MINUTES')
-        timestamps()
-        disableConcurrentBuilds()
+    // 1. Clean Workspace
+    stage('Clean Workspace') {
+        try {
+            cleanWs()
+        } catch (Exception e) {
+            echo '[PIPELINE FAILURE] Failed at stage: Clean Workspace'
+            throw e
+        }
     }
 
-    stages {
+    // 2. Checkout SCM
+    stage('Checkout SCM') {
+        try {
+            echo 'Checking out source code from GitHub...'
+            checkout scm
+        } catch (Exception e) {
+            echo '[PIPELINE FAILURE] Failed at stage: Checkout SCM'
+            throw e
+        }
+    }
 
-        stage('Clean Workspace') {
-            steps {
-                cleanWs()
+    // 3. Unit Testing & Coverage
+    stage('Unit Testing & Coverage') {
+        try {
+            echo 'Setting up Python environment and running unit tests...'
+
+            sh '''
+                set -e
+
+                python3 -m venv venv
+                . venv/bin/activate
+
+                python -m pip install --upgrade pip
+                pip install -r requirements.txt
+                pip install pytest pytest-cov
+
+                pytest test/ \
+                    --junitxml=test-results.xml \
+                    --cov=Application-Source-Code \
+                    --cov-report=xml:coverage.xml \
+                    --cov-report=term-missing
+            '''
+
+        } catch (Exception e) {
+            echo '[PIPELINE FAILURE] Failed at stage: Unit Testing & Coverage'
+            throw e
+        } finally {
+            junit allowEmptyResults: true,
+                  testResults: 'test-results.xml'
+        }
+    }
+
+    // 4. Docker Linting
+    stage('Docker Linting') {
+        try {
+            echo 'Running Hadolint on all Dockerfiles...'
+
+            sh '''
+                docker run --rm \
+                    -v "$WORKSPACE:/workspace" \
+                    -w /workspace \
+                    hadolint/hadolint \
+                    --format sonarqube ../dockerfiles/* \
+                    > hadolint-report.json
+            '''
+
+        } catch (Exception e) {
+            echo '[PIPELINE FAILURE] Failed at stage: Docker Linting'
+            throw e
+        } finally {
+            archiveArtifacts artifacts: 'hadolint-report.json',
+                             allowEmptyArchive: true
+        }
+    }
+
+    // 5. SonarQube SAST
+    stage('SAST - SonarQube Analysis') {
+        try {
+            echo 'Starting SonarQube SAST scan...'
+
+            def scannerHome = tool 'SonarScanner'
+
+            withSonarQubeEnv('demo_sonarqube') {
+                sh "${scannerHome}/bin/sonar-scanner"
             }
-            post {
-                failure {
-                    echo "==================================================="
-                    echo "[PIPELINE FAILURE] Failed at stage: Clean Workspace"
-                    echo "==================================================="
+
+        } catch (Exception e) {
+            echo '[PIPELINE FAILURE] Failed at stage: SAST - SonarQube Analysis'
+            throw e
+        }
+    }
+
+    // 6. Quality Gate
+    stage('Quality Gate Check') {
+        try {
+            timeout(time: 3, unit: 'MINUTES') {
+
+                def qg = waitForQualityGate()
+
+                echo "SonarQube Quality Gate Status: ${qg.status}"
+
+                if (qg.status != 'OK') {
+                    error "Pipeline stopped: SonarQube Quality Gate failed: ${qg.status}"
                 }
             }
+
+        } catch (Exception e) {
+            echo '[PIPELINE FAILURE] Failed at stage: Quality Gate Check'
+            throw e
         }
+    }
 
-        stage('Checkout SCM') {
-            steps {
-                echo 'Checking out source code from GitHub...'
-                checkout scm
-            }
-            post {
-                failure {
-                    echo "============================================================================"
-                    echo "[PIPELINE FAILURE] Failed at stage: Checkout SCM (Unable to pull repository)"
-                    echo "============================================================================"
-                }
-            }
+    // 7. Dependency Scan
+    stage('Dependency Scan') {
+        try {
+            echo 'Running Trivy Dependency Scan...'
+
+            sh """
+                set -e
+
+                docker run --rm \
+                    -v "\${WORKSPACE}:/apps" \
+                    -w /apps \
+                    aquasec/trivy fs \
+                    --scanners vuln \
+                    --severity LOW,MEDIUM,HIGH,CRITICAL \
+                    --format template \
+                    --template '@/contrib/html.tpl' \
+                    --output dependency_report_${BUILD_NUMBER}.html \
+                    ../requirements.txt
+
+                docker run --rm \
+                    -v "\${WORKSPACE}:/apps" \
+                    -w /apps \
+                    aquasec/trivy fs \
+                    --scanners vuln \
+                    --severity HIGH,CRITICAL \
+                    --ignore-unfixed \
+                    --exit-code 1 \
+                    --quiet \
+                    ../requirements.txt
+            """
+
+        } catch (Exception e) {
+            echo '[PIPELINE FAILURE] Failed at stage: Dependency Scan'
+            throw e
+        } finally {
+            archiveArtifacts artifacts: 'dependency_report_*.html',
+                             allowEmptyArchive: true
         }
+    }
 
-        stage('Unit Testing & Coverage') {
-            steps {
-                echo 'Setting up Python environment and running unit tests...'
-                sh '''
-                    # Create and activate virtual environment
-                    sudo apt update
-                    sudo apt install -y python3.14-venv python3-pip
-                    python3 -m venv venv
-                    . venv/bin/activate
+    // 8. Build Docker Images
+    stage('Build Docker Image') {
+        try {
+            def services = [
+                'backend',
+                'success',
+                'signup',
+                'login',
+                'ingress'
+            ]
 
-                    # Install project dependencies and test tools
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                    pip install pytest pytest-cov
+            for (String service : services) {
+                echo "Building ${service} image..."
 
-                    # Run tests with JUnit and Cobertura XML outputs for Jenkins and SonarQube
-                    pytest test/ \
-                        --junitxml=test-results.xml \
-                        --cov=Application-Source-Code \
-                        --cov-report=xml:coverage.xml \
-                        --cov-report=term-missing
-                '''
+                sh """
+                    docker build \
+                        -t rganesh7/${service}-1026:${BUILD_NUMBER} \
+                        -f ../dockerfiles/${service}.Dockerfile .
+                """
             }
-            post {
-                // always {
-                //     // Publishes test result graphs on the Jenkins build page
-                //     junit allowEmptyResults: true, testResults: 'test-results.xml'
-                // }
-                failure {
-                    echo "==========================================================="
-                    echo "[PIPELINE FAILURE] Failed at stage: Unit Testing & Coverage"
-                    echo "==========================================================="
-                }
-            }
+
+        } catch (Exception e) {
+            echo '[PIPELINE FAILURE] Failed at stage: Build Docker Image'
+            throw e
         }
+    }
 
-        stage('Docker Linting') {
-            steps {
-                echo 'Running Hadolint on all Dockerfiles...'
-                sh '''
-                    # Run hadolint over the entire dockerfiles directory and write valid sonarqube json
+    // 9. Trivy Image Scanning
+    stage('Trivy Image Scanning..') {
+        try {
+            def services = [
+                'backend',
+                'success',
+                'signup',
+                'login',
+                'ingress'
+            ]
+
+            for (String service : services) {
+                echo "Scanning ${service} image..."
+
+                sh """
+                    set -e
+
                     docker run --rm \
-                      -v "${WORKSPACE}:/workspace" \
-                      -w /workspace \
-                      hadolint/hadolint hadolint --format sonarqube dockerfiles/* > hadolint-report.json || true
-                '''
-            }
-            post {
-                failure {
-                    echo "=================================================="
-                    echo "[PIPELINE FAILURE] Failed at stage: Docker Linting"
-                    echo "=================================================="
-                }
-            }
-        }
-
-        stage('SAST - SonarQube Analysis') {
-            steps {
-                echo 'Starting SonarQube SAST scan...'
-                script {
-                    def scannerHome = tool 'SonarScanner'
-
-                    withSonarQubeEnv('demo_sonarqube') {
-                        sh "${scannerHome}/bin/sonar-scanner"
-                    }
-                }
-            }
-            post {
-                failure {
-                    echo "========================================================================================"
-                    echo "[PIPELINE FAILURE] Failed at stage: SAST - SonarQube Analysis (Scanner execution failed)"
-                    echo "========================================================================================"
-                }
-            }
-        }
-
-        stage('Quality Gate Check') {
-            steps {
-                timeout(time: 3, unit: 'MINUTES') {
-                    script {
-                        def qg = waitForQualityGate()
-                        echo "SonarQube Quality Gate Status: ${qg.status}"
-
-                        if (qg.status != 'OK') {
-                            error "Pipeline stopped: SonarQube Quality Gate failed with status: ${qg.status}"
-                        }
-                    }
-                }
-            }
-            post {
-                failure {
-                    echo "======================================================================================================="
-                    echo "[PIPELINE FAILURE] Failed at stage: Quality Gate Check (Project failed to meet Quality Gate conditions)"
-                    echo "======================================================================================================="
-                }
-            }
-        }
-
-        stage('Dependency Scan') {
-            steps {
-                script {
-                    echo "Running Trivy Dependency Scan..."
-                    sh """
-                        docker run --rm \
-                        -v \$(pwd):/apps \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        -v "\${WORKSPACE}:/apps" \
+                        -v "\$HOME/.cache/trivy:/root/.cache/" \
                         -w /apps \
-                        --entrypoint sh \
-                        aquasec/trivy -c "
-                            echo '1. Generating combined HTML report for ALL severities...' && \
-                            trivy fs --scanners vuln --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output dependency_report_${BUILD_NUMBER}.html requirements.txt && \
-                            echo '2. Enforcing pipeline gates for HIGH and CRITICAL vulnerabilities...' && \
-                            trivy fs --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --quiet requirements.txt
-                        "
-                    """
-                }
+                        aquasec/trivy image \
+                        --severity LOW,MEDIUM,HIGH,CRITICAL \
+                        --format template \
+                        --template '@/contrib/html.tpl' \
+                        --output Trivy_Img_Scan-${service}-report_${BUILD_NUMBER}.html \
+                        rganesh7/${service}-1026:${BUILD_NUMBER}
+
+                    docker run --rm \
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        -v "\$HOME/.cache/trivy:/root/.cache/" \
+                        aquasec/trivy image \
+                        --severity HIGH,CRITICAL \
+                        --ignore-unfixed \
+                        --exit-code 0 \
+                        --quiet \
+                        rganesh7/${service}-1026:${BUILD_NUMBER}
+                """
             }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'dependency_report_*.html', allowEmptyArchive: true
-                }
-                failure {
-                    echo "======================================================================================================="
-                    echo "[PIPELINE FAILURE] Failed at stage: Dependency Scan (High or Critical CVE detected in requirements.txt)"
-                    echo "======================================================================================================="
-                }
-            }
+
+        } catch (Exception e) {
+            echo '[PIPELINE FAILURE] Failed at stage: Trivy Image Scanning'
+            throw e
+        } finally {
+            archiveArtifacts artifacts: 'Trivy_Img_Scan-*-report_*.html',
+                             allowEmptyArchive: true
         }
+    }
 
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    def images = ['backend', 'success', 'signup', 'login', 'ingress']
-                    for (service in images) {
-                        echo "Building and tagging ${service} image with Build Number..."
-                        sh "docker build -t rganesh7/${service}-1026:${BUILD_NUMBER} -f dockerfiles/${service}.Dockerfile ."
-                    }
-                }
-            }
-            post {
-                failure {
-                    echo "=============================================================================================================="
-                    echo "[PIPELINE FAILURE] Failed at stage: Build Docker Image (Docker build step encountered a syntax or layer error)"
-                    echo "=============================================================================================================="
-                }
-            }
-        }
+    // 10. Promote & Push
+    // Skip publishing from PR builds for credential safety.
+    if (!env.CHANGE_ID) {
 
-        // stage('Build Docker Image') {
-        //     steps {
-        //         echo "Building and tagging backend image with Build Number..."
-        //         sh "docker build -t rganesh7/backend-1026:${BUILD_NUMBER} -f dockerfiles/backend.Dockerfile ."
-        //         echo "Building and tagging success image with Build Number..."
-        //         sh "docker build -t rganesh7/success-1026:${BUILD_NUMBER} -f dockerfiles/success.Dockerfile ."
-        //         echo "Building and tagging signup image with Build Number..."
-        //         sh "docker build -t rganesh7/signup-1026:${BUILD_NUMBER} -f dockerfiles/signup.Dockerfile ."
-        //         echo "Building and tagging login image with Build Number..."
-        //         sh "docker build -t rganesh7/login-1026:${BUILD_NUMBER} -f dockerfiles/login.Dockerfile ."
-        //         echo "Building and tagging ingress image with Build Number..."
-        //         sh "docker build -t rganesh7/ingress-1026:${BUILD_NUMBER} -f dockerfiles/ingress.Dockerfile ."
-        //     }
-        // }
+        stage('Promote & Push to Registry') {
+            try {
+                def services = [
+                    'backend',
+                    'success',
+                    'signup',
+                    'login',
+                    'ingress'
+                ]
 
-        stage('Trivy Image Scanning..') {
-            steps {
-                script {
-                    def services = ['backend', 'success', 'signup', 'login', 'ingress']
-                    
-                    for (int i = 0; i < services.size(); i++) {
-                        String currentService = services[i]
-                        
-                        echo "Scanning ${currentService} using a shared host cache..."
+                docker.withRegistry(
+                    'https://index.docker.io/v1/',
+                    'docker-credentials'
+                ) {
+                    for (String service : services) {
+
                         sh """
-                            docker run --rm \
-                            -v /var/run/docker.sock:/var/run/docker.sock:ro \
-                            -v \$(pwd):/apps \
-                            -v \$HOME/.cache/trivy:/root/.cache/ \
-                            -w /apps \
-                            --entrypoint sh \
-                            aquasec/trivy -c "
-                                trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output Trivy_Img_Scan-${currentService}-report_${BUILD_NUMBER}.html rganesh7/${currentService}-1026:${BUILD_NUMBER} && \
-                                trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 0 --quiet rganesh7/${currentService}-1026:${BUILD_NUMBER}
-                            "
+                            docker tag \
+                                rganesh7/${service}-1026:${BUILD_NUMBER} \
+                                rganesh7/${service}-1026:latest
+
+                            docker push \
+                                rganesh7/${service}-1026:${BUILD_NUMBER}
+
+                            docker push \
+                                rganesh7/${service}-1026:latest
                         """
                     }
                 }
-            }
-            post {
-                always {
-                    // Preserves HTML reports even when Trivy exits with 1
-                    archiveArtifacts artifacts: 'Trivy_Img_Scan-*-report_*.html', allowEmptyArchive: true
-                }
-                failure {
-                    echo "======================================================================================================================"
-                    echo "[PIPELINE FAILURE] Failed at stage: Trivy Image Scanning (High/Critical unpatched vulnerability found in built images)"
-                    echo "======================================================================================================================"
-                }
+
+            } catch (Exception e) {
+                echo '[PIPELINE FAILURE] Failed at stage: Promote & Push'
+                throw e
             }
         }
 
-        stage('Promote & Push to Registry') {
-            steps {
-                script {
-                    def services = ['backend', 'success', 'signup', 'login', 'ingress']
-                    docker.withRegistry('https://index.docker.io/v1/', 'docker-credentials') {
-                        
-                        for (int i = 0; i < services.size(); i++) {
-                            String currentService = services[i]
-                            
-                            sh "docker tag rganesh7/${currentService}-1026:${BUILD_NUMBER} rganesh7/${currentService}-1026:latest"
-                            sh "docker push rganesh7/${currentService}-1026:${BUILD_NUMBER}"
-                            sh "docker push rganesh7/${currentService}-1026:latest"
-                        }
-                    }
-                }
-            }
-            post {
-                failure {
-                    echo "============================================================================================"
-                    echo "[PIPELINE FAILURE] Failed at stage: Promote & Push to Registry (Docker login or push failed)"
-                    echo "============================================================================================"
-                }
-            }
-        }
-
+        // 11. Cosign Image Signing
         stage('Sign Image') {
-            steps {
-                // Inject the private key and passphrase from Jenkins credentials
+            try {
                 withCredentials([
-                    file(credentialsId: 'cosign-private-key', variable: 'COSIGN_KEY'),
-                    string(credentialsId: 'cosign-passphrase', variable: 'COSIGN_PASSWORD')
+                    file(
+                        credentialsId: 'cosign-private-key',
+                        variable: 'COSIGN_KEY'
+                    ),
+                    string(
+                        credentialsId: 'cosign-passphrase',
+                        variable: 'COSIGN_PASSWORD'
+                    )
                 ]) {
-                    script {
-                        def services = ['backend', 'success', 'signup', 'login', 'ingress']
 
-                        docker.withRegistry('https://index.docker.io/v1/', 'docker-credentials') {
-                            for (int i = 0; i < services.size(); i++) {
-                                String currentService = services[i]
-                                echo "Signing ${currentService} images (latest and build ${BUILD_NUMBER})..."
+                    def services = [
+                        'backend',
+                        'success',
+                        'signup',
+                        'login',
+                        'ingress'
+                    ]
 
-                                sh """
-                                    cosign sign --key "\$COSIGN_KEY" rganesh7/${currentService}-1026:latest
-                                    cosign sign --key "\$COSIGN_KEY" rganesh7/${currentService}-1026:${BUILD_NUMBER}
-                                """
-                            }
-                        }
+                    for (String service : services) {
+
+                        echo "Signing ${service} images..."
+
+                        sh """
+                            cosign sign --key "\$COSIGN_KEY" \
+                                rganesh7/${service}-1026:latest
+
+                            cosign sign --key "\$COSIGN_KEY" \
+                                rganesh7/${service}-1026:${BUILD_NUMBER}
+                        """
                     }
                 }
-            }
-            post {
-                failure {
-                    echo "==================================================================================="
-                    echo "[PIPELINE FAILURE] Failed at stage: Sign Image (Cosign signature generation failed)"
-                    echo "==================================================================================="
-                }
+
+            } catch (Exception e) {
+                echo '[PIPELINE FAILURE] Failed at stage: Sign Image'
+                throw e
             }
         }
 
-        // stage('Sign Image') {
-        //     steps {
-        //         // Inject the private key and passphrase from Jenkins credentials
-        //         withCredentials([
-        //             file(credentialsId: 'cosign-private-key', variable: 'COSIGN_KEY'),
-        //             string(credentialsId: 'cosign-passphrase', variable: 'COSIGN_PASSWORD')
-        //         ]) {
-        //             script {
-        //                 docker.withRegistry('https://index.docker.io/v1/', 'docker-credentials') {
-        //                     sh "cosign sign --key \$COSIGN_KEY rganesh7/backend-1026:latest"
-        //                     sh "cosign sign --key \$COSIGN_KEY rganesh7/backend-1026:${BUILD_NUMBER}"
-        //                 }
-        //             }
-        //         }
-        //     }
-        //     post {
-        //         failure {
-        //             echo "==================================================================================="
-        //             echo "[PIPELINE FAILURE] Failed at stage: Sign Image (Cosign signature generation failed)"
-        //             echo "==================================================================================="
-        //         }
-        //     }
-        // }
+    } else {
+        echo 'PR build: skipping Docker push and Cosign signing.'
     }
-    post {
-        success {
-            echo "======================================================================================="
-            echo "SUCCESS: Pipeline completed all security checks, tests, builds, pushes, and signatures."
-            echo "======================================================================================="
-        }
-        failure {
-            echo "================================================================================"
-            echo "================================================================================"
-            echo "BUILD FAILED: Review the stage marked above with [PIPELINE FAILURE] for details."
-            echo "================================================================================"
-            echo "================================================================================"
-        }
-    }
+
+    echo 'CI pipeline completed.'
 }
 
-
-        // stage('Trivy Image Scanning..') {
-        //     steps {
-        //         script {
-        //             echo "Running both Trivy actions inside a single container instance..."
-                    
-        //             sh """
-        //                 docker run --rm \
-        //                 -v /var/run/docker.sock:/var/run/docker.sock:ro \
-        //                 -v \$(pwd):/apps \
-        //                 -w /apps \
-        //                 --entrypoint sh \
-        //                 aquasec/trivy -c "
-        //                     echo '1. Generating HTML report...' && \
-        //                     trivy image --severity LOW,MEDIUM,HIGH,CRITICAL --format template --template '@/contrib/html.tpl' --output image-scan_report.html rganesh7/backend-1026:109 && \
-        //                     echo '2. Enforcing pipeline validation gate...' && \
-        //                     trivy image --severity HIGH,CRITICAL --exit-code 0 --quiet rganesh7/backend-1026:109
-        //                 "
-        //             """
-        //         }
-        //     }
-        // }
+return this
