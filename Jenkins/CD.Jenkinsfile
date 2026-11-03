@@ -8,7 +8,7 @@ pipeline {
     }
 
     environment {
-        DEPLOY_HOST = '13.233.111.36'
+        DEPLOY_HOST = '43.205.113.174'
         DEPLOY_USER = 'ubuntu'
         DEPLOY_DIR  = '/home/ubuntu/demo-proj'
     }
