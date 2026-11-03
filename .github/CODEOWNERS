@@ -1,0 +1,5 @@
+# Require abc to review all files
+* @ganeshr-29
+
+# Protect the review policy itself
+/.github/CODEOWNERS @ganeshr-29
