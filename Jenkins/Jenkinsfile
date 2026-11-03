@@ -9,13 +9,13 @@ pipeline {
                         // Pull request build
                         if (env.CHANGE_TARGET == 'dev') {
                             echo 'PR targeting dev: Running CI'
-                            load 'ci.jenkins'
+                            load 'CI.Jenkinsfile'
                         } else {
                             echo 'PR target is not dev. Skipping.'
                         }
                     } else if (env.BRANCH_NAME == 'prod') {
                         echo 'Push to prod: Running CD'
-                        load 'cd.jenkins'
+                        load 'CD.Jenkinsfile'
                     } else {
                         echo "No pipeline configured for ${env.BRANCH_NAME}"
                     }
