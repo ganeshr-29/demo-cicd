@@ -1,11 +1,4 @@
-pipeline {
-    agent any
-
-    options {
-        timeout(time: 10, unit: 'MINUTES')
-        timestamps()
-        disableConcurrentBuilds()
-    }
+def runCD() {
 
     environment {
         DEPLOY_HOST = '43.205.113.174'
@@ -129,3 +122,4 @@ EOF
         }
     }
 }
+return this
