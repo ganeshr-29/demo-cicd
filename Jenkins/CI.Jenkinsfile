@@ -59,6 +59,7 @@ def runCI() {
 
             sh '''
                 docker run --rm \
+                    --entrypoint hadolint \
                     -v "$WORKSPACE:/workspace" \
                     -w /workspace \
                     hadolint/hadolint \
