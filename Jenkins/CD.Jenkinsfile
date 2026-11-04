@@ -1,54 +1,77 @@
+
 def runCD() {
 
-    environment {
-        DEPLOY_HOST = '43.205.113.174'
-        DEPLOY_USER = 'ubuntu'
-        DEPLOY_DIR  = '/home/ubuntu/demo-proj'
-    }
+    def DEPLOY_HOST = '43.205.113.174'
+    def DEPLOY_USER = 'ubuntu'
+    def DEPLOY_DIR  = '/home/ubuntu/demo-proj'
 
-    stages {
+    try {
+
+        // ==========================================================
+        // Stage 1: Verify Image Signatures
+        // ==========================================================
         stage('Verify Image Signatures (Cosign)') {
-            steps {
+
+            try {
+
                 withCredentials([
-                    file(credentialsId: 'cosign-public-key', variable: 'COSIGN_PUB_KEY')
+                    file(credentialsId: 'cosign-public-key',
+                         variable: 'COSIGN_PUB_KEY')
                 ]) {
-                    script {
-                        def services = ['backend', 'success', 'signup', 'login', 'ingress']
 
-                        for (int i = 0; i < services.size(); i++) {
-                            String currentService = services[i]
-                            echo "Verifying Cosign signature for rganesh7/${currentService}-1026:latest..."
+                    def services = [
+                        'backend',
+                        'success',
+                        'signup',
+                        'login',
+                        'ingress'
+                    ]
 
-                            sh """
-                                cosign verify --key "\$COSIGN_PUB_KEY" rganesh7/${currentService}-1026:latest
-                            """
-                        }
+                    for (String currentService : services) {
+
+                        echo "Verifying Cosign signature for rganesh7/${currentService}-1026:latest..."
+
+                        sh """
+                            cosign verify --key "\$COSIGN_PUB_KEY" rganesh7/${currentService}-1026:latest
+                        """
                     }
                 }
-            }
-            post {
-                failure {
-                    echo "=========================================================================================================="
-                    echo "[PIPELINE FAILURE] Failed at stage: Verify Image Signatures (Untrusted, modified, or unsigned image detected)"
-                    echo "=========================================================================================================="
-                }
+
+            } catch (Exception e) {
+
+                echo "=========================================================================================================="
+                echo "[PIPELINE FAILURE] Failed at stage: Verify Image Signatures (Untrusted, modified, or unsigned image detected)"
+                echo "=========================================================================================================="
+
+                throw e
             }
         }
 
+
+        // ==========================================================
+        // Stage 2: Deploy via Docker Compose
+        // ==========================================================
         stage('Deploy via Docker Compose') {
-            steps {
+
+            try {
+
                 echo "Triggering deployment on remote host: ${DEPLOY_HOST}..."
+
                 sshagent(['Deployment_Server']) {
+
                     sh """
-                        # Automate host key verification
+                        set -e
+
                         mkdir -p ~/.ssh
                         chmod 700 ~/.ssh
                         touch ~/.ssh/known_hosts
                         chmod 600 ~/.ssh/known_hosts
+
                         ssh-keyscan -H ${DEPLOY_HOST} >> ~/.ssh/known_hosts
 
-                        # Execute Docker Compose directly inside the deployment directory
                         ssh ${DEPLOY_USER}@${DEPLOY_HOST} << 'EOF'
+                            set -e
+
                             cd ${DEPLOY_DIR}
 
                             echo "Pulling latest signed images..."
@@ -63,63 +86,83 @@ EOF
                     """
                 }
 
-                echo "Waiting 1 minute for containers and database initialization to complete..."
-                sleep time: 1, unit: 'MINUTES'
 
-                echo "Inspecting running status for all containers on ${DEPLOY_HOST}..."
+                // Wait for application and database initialization
+                echo "Waiting 1 minute for containers and database initialization..."
+                sleep(time: 1, unit: 'MINUTES')
+
+
+                // ==================================================
+                // Stage 3: Verify Container Status
+                // ==================================================
+                echo "Inspecting running status for containers on ${DEPLOY_HOST}..."
+
                 sshagent(['Deployment_Server']) {
+
                     sh """
                         ssh ${DEPLOY_USER}@${DEPLOY_HOST} << 'EOF'
+                            set -e
+
                             cd ${DEPLOY_DIR}
 
                             echo "================ Current Container Status ================"
-                            docker compose ps --all --format "table {{.Name}}\t{{.Service}}\t{{.Status}}\t{{.State}}"
+                            docker compose ps --all
                             echo "=========================================================="
 
-                            # Count defined services vs containers actively running
-                            TOTAL_SERVICES=\$(docker compose config --services | wc -l)
-                            RUNNING_SERVICES=\$(docker compose ps --status running -q | wc -l)
+                            TOTAL_SERVICES=\$(docker compose config --services | sort -u | wc -l)
+
+                            RUNNING_SERVICES=\$(docker compose ps --services --filter status=running | sort -u | wc -l)
 
                             echo "Total expected services : \${TOTAL_SERVICES}"
                             echo "Currently running       : \${RUNNING_SERVICES}"
 
                             if [ "\${RUNNING_SERVICES}" -ne "\${TOTAL_SERVICES}" ]; then
+
                                 echo "=========================================================="
-                                echo "ERROR: Not all containers are in 'running' state!"
-                                echo "Non-running container details:"
-                                docker compose ps --all --filter "status=exited" --filter "status=dead" --filter "status=restarting" --filter "status=created"
+                                echo "ERROR: Not all services are running!"
+
+                                echo "Container details:"
+                                docker compose ps --all
+
                                 echo "---------------------- Error Logs ------------------------"
                                 docker compose logs --tail=40
+
                                 echo "=========================================================="
+
                                 exit 1
                             fi
 
-                            echo "SUCCESS: All \${TOTAL_SERVICES} containers are confirmed running!"
+                            echo "SUCCESS: All \${TOTAL_SERVICES} services are confirmed running!"
 EOF
                     """
                 }
-            }
-            post {
-                failure {
-                    echo "========================================================================================================"
-                    echo "[PIPELINE FAILURE] Failed at stage: Deploy via Docker Compose (Deployment or Container Status Check Failed)"
-                    echo "========================================================================================================"
-                }
-            }
-        }
-    }
 
-    post {
-        success {
-            echo "=========================================================================="
-            echo "SUCCESS: Verified signatures, deployed, and confirmed all containers are running."
-            echo "=========================================================================="
+            } catch (Exception e) {
+
+                echo "========================================================================================================"
+                echo "[PIPELINE FAILURE] Failed at stage: Deploy via Docker Compose (Deployment or Container Status Check Failed)"
+                echo "========================================================================================================"
+
+                throw e
+            }
         }
-        failure {
-            echo "=========================================================================="
-            echo "CD PIPELINE FAILED: Check the failing stage above for details."
-            echo "=========================================================================="
-        }
+
+
+        // ==========================================================
+        // Pipeline Success
+        // ==========================================================
+        echo "=========================================================================="
+        echo "SUCCESS: Verified signatures, deployed, and confirmed all containers are running."
+        echo "=========================================================================="
+
+    } catch (Exception e) {
+
+        echo "=========================================================================="
+        echo "CD PIPELINE FAILED: Check the failing stage above for details."
+        echo "=========================================================================="
+
+        throw e
     }
 }
+
 return this
