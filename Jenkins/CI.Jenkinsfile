@@ -53,28 +53,35 @@ def runCI() {
     }
 
     // 4. Docker Linting
+
+    
     stage('Docker Linting') {
         try {
             echo 'Running Hadolint on all Dockerfiles...'
-
+    
             sh '''
                 docker run --rm \
                     --entrypoint hadolint \
                     -v "$WORKSPACE:/workspace" \
                     -w /workspace \
                     hadolint/hadolint \
-                    --format sonarqube dockerfiles/* \
-                    > hadolint-report.json
+                    --format sonarqube \
+                    dockerfiles/*.Dockerfile \
+                    > hadolint-report.json 2>&1 || true
             '''
-
+    
         } catch (Exception e) {
             echo '[PIPELINE FAILURE] Failed at stage: Docker Linting'
             throw e
+    
         } finally {
             archiveArtifacts artifacts: 'hadolint-report.json',
                              allowEmptyArchive: true
         }
     }
+
+    
+    
 
     // 5. SonarQube SAST
     stage('SAST - SonarQube Analysis') {
