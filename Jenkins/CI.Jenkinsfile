@@ -62,7 +62,7 @@ def runCI() {
                     -v "$WORKSPACE:/workspace" \
                     -w /workspace \
                     hadolint/hadolint \
-                    --format sonarqube /dockerfiles/* \
+                    --format sonarqube dockerfiles/* \
                     > hadolint-report.json
             '''
 
@@ -129,7 +129,7 @@ def runCI() {
                     --format template \
                     --template '@/contrib/html.tpl' \
                     --output dependency_report_${BUILD_NUMBER}.html \
-                    /requirements.txt
+                    requirements.txt
 
                 docker run --rm \
                     -v "\${WORKSPACE}:/apps" \
@@ -140,7 +140,7 @@ def runCI() {
                     --ignore-unfixed \
                     --exit-code 1 \
                     --quiet \
-                    /requirements.txt
+                    requirements.txt
             """
 
         } catch (Exception e) {
@@ -169,7 +169,7 @@ def runCI() {
                 sh """
                     docker build \
                         -t rganesh7/${service}-1026:${BUILD_NUMBER} \
-                        -f /dockerfiles/${service}.Dockerfile .
+                        -f dockerfiles/${service}.Dockerfile .
                 """
             }
 
