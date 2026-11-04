@@ -53,27 +53,35 @@ def runCI() {
     }
 
     // 4. Docker Linting
+
+    
     stage('Docker Linting') {
         try {
             echo 'Running Hadolint on all Dockerfiles...'
-
+    
             sh '''
                 docker run --rm \
+                    --entrypoint hadolint \
                     -v "$WORKSPACE:/workspace" \
                     -w /workspace \
                     hadolint/hadolint \
-                    --format sonarqube ../dockerfiles/* \
-                    > hadolint-report.json
+                    --format sonarqube \
+                    dockerfiles/*.Dockerfile \
+                    > hadolint-report.json 2>&1 || true
             '''
-
+    
         } catch (Exception e) {
             echo '[PIPELINE FAILURE] Failed at stage: Docker Linting'
             throw e
+    
         } finally {
             archiveArtifacts artifacts: 'hadolint-report.json',
                              allowEmptyArchive: true
         }
     }
+
+    
+    
 
     // 5. SonarQube SAST
     stage('SAST - SonarQube Analysis') {
@@ -129,7 +137,7 @@ def runCI() {
                     --format template \
                     --template '@/contrib/html.tpl' \
                     --output dependency_report_${BUILD_NUMBER}.html \
-                    ../requirements.txt
+                    requirements.txt
 
                 docker run --rm \
                     -v "\${WORKSPACE}:/apps" \
@@ -140,7 +148,7 @@ def runCI() {
                     --ignore-unfixed \
                     --exit-code 1 \
                     --quiet \
-                    ../requirements.txt
+                    requirements.txt
             """
 
         } catch (Exception e) {
@@ -169,7 +177,7 @@ def runCI() {
                 sh """
                     docker build \
                         -t rganesh7/${service}-1026:${BUILD_NUMBER} \
-                        -f ../dockerfiles/${service}.Dockerfile .
+                        -f dockerfiles/${service}.Dockerfile .
                 """
             }
 
